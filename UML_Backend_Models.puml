@@ -1,0 +1,313 @@
+@startuml Sistema_Biblioteca_Models
+
+' Configurações do diagrama
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 10
+skinparam packageStyle rectangle
+
+title Sistema de Biblioteca - Modelos Backend\nRelacionamentos entre Classes
+
+' ========== CLASSES PRINCIPAIS ==========
+
+abstract class Usuario {
+    - id: int
+    - nome: str
+    - email: str
+    - senha: str (MD5)
+    - tipo_usuario: str
+    - ativo: bool
+    - data_cadastro: datetime
+    - data_atualizacao: datetime
+    
+    + __init__(nome, email, senha, tipo_usuario, ...)
+    + verificar_senha(senha: str): bool
+    + alterar_senha(nova_senha: str): void
+    + salvar(): tuple[bool, str]
+    + excluir(): tuple[bool, str]
+    + to_dict(): dict
+    + from_dict(data: dict): Usuario
+    
+    ' Métodos abstratos (polimorfismo)
+    + {abstract} validar(): tuple[bool, str]
+    + {abstract} obter_permissoes(): list[str]
+    + {abstract} pode_realizar_acao(acao: str): bool
+    
+    ' Métodos estáticos
+    + {static} autenticar(email, senha): tuple[bool, Usuario, str]
+    + {static} listar_todos(limite, incluir_inativos): list[Usuario]
+    + {static} buscar_por_email(email): Usuario
+    + {static} buscar_por_id(id): Usuario
+    
+    ' Métodos privados
+    - _criptografar_senha(senha): str
+    - _eh_senha_criptografada(senha): bool
+    - _inserir(db): tuple[bool, str]
+    - _atualizar(db): tuple[bool, str]
+    - _email_existe(db, email): bool
+    - _existe_por_id(db, id): bool
+    - _buscar_ultimo_id(db): int
+}
+
+' ========== CLASSES ESPECIALIZADAS (HERANÇA) ==========
+
+class Aluno {
+    - matricula: str
+    - periodo: str
+    
+    + __init__(nome, email, senha, matricula, periodo, ...)
+    
+    ' Implementação dos métodos abstratos (polimorfismo)
+    + validar(): tuple[bool, str]
+    + obter_permissoes(): list[str]
+    + pode_realizar_acao(acao: str): bool
+    
+    ' Métodos específicos do Aluno
+    + validar_matricula(): bool
+    + obter_historico_emprestimos(): list[Emprestimo]
+    + pode_emprestar(): tuple[bool, str]
+    + avaliar_livro(livro_id, nota, comentario): tuple[bool, str]
+}
+
+class Professor {
+    - departamento: str
+    
+    + __init__(nome, email, senha, departamento, ...)
+    
+    ' Implementação dos métodos abstratos (polimorfismo)
+    + validar(): tuple[bool, str]
+    + obter_permissoes(): list[str]
+    + pode_realizar_acao(acao: str): bool
+    
+    ' Métodos específicos do Professor
+    + validar_departamento(): bool
+    + solicitar_reserva_prioritaria(livro_id): tuple[bool, str]
+    + fazer_avaliacao_prioritaria(livro_id, nota, comentario): tuple[bool, str]
+    + criar_lista_leitura(disciplina, livros): tuple[bool, str]
+}
+
+class Bibliotecario {
+    - num_registro: str
+    
+    + __init__(nome, email, senha, num_registro, ...)
+    
+    ' Implementação dos métodos abstratos (polimorfismo)
+    + validar(): tuple[bool, str]
+    + obter_permissoes(): list[str]
+    + pode_realizar_acao(acao: str): bool
+    
+    ' Métodos específicos do Bibliotecario
+    + validar_registro(): bool
+    + gerenciar_emprestimo(usuario_id, livro_id, acao): tuple[bool, str]
+    + processar_devolucao(emprestimo_id): tuple[bool, str]
+    + aplicar_multa(usuario_id, valor, motivo): tuple[bool, str]
+    + gerar_relatorio(tipo, periodo): dict
+    + gerenciar_usuario(acao, usuario_data): tuple[bool, str]
+    + configurar_sistema(parametro, valor): tuple[bool, str]
+}
+
+class Livro {
+    - id: int
+    - nome: str
+    - autor: str
+    - isbn: str
+    - genero: str
+    - data_cadastro: datetime
+    - data_atualizacao: datetime
+    - ativo: bool
+    
+    + __init__(nome, autor, isbn, genero, ...)
+    + validar(): tuple[bool, str]
+    + salvar(): tuple[bool, str]
+    + excluir(): tuple[bool, str]
+    + reativar(): tuple[bool, str]
+    + deletar(): tuple[bool, str]
+    + pode_ser_deletado(): tuple[bool, str]
+    + deletar_com_verificacao(): tuple[bool, str]
+    + to_dict(): dict
+    + from_dict(data: dict): Livro
+    
+    ' Métodos estáticos
+    + {static} listar_todos(limite, incluir_inativos): list[Livro]
+    + {static} buscar_por_isbn(isbn): Livro
+    + {static} buscar_por_id(id): Livro
+    
+    ' Métodos privados
+    - _inserir(db): tuple[bool, str]
+    - _atualizar(db): tuple[bool, str]
+    - _isbn_existe(db, isbn): bool
+    - _existe_por_id(db, id): bool
+    - _buscar_ultimo_id(db): int
+    + {static} _from_db_row(row): Livro
+}
+
+class Biblioteca {
+    - id: int
+    - nome: str
+    - endereco: str
+    - telefone: str
+    - email: str
+    
+    + __init__(nome, endereco, telefone, email)
+    + validar_dados(): tuple[bool, str]
+    + salvar(): tuple[bool, str]
+    
+    + {static} listar_todas(): list[Biblioteca]
+    + {static} buscar_por_id(id): Biblioteca
+    + {static} buscar_por_nome(nome): Biblioteca
+}
+
+class Avaliacao {
+    - id: int
+    - livro_id: int
+    - usuario_id: int
+    - nota: int (1-5)
+    - comentario: str
+    - data_avaliacao: datetime
+    - ativa: bool
+    
+    + __init__(livro_id, usuario_id, nota, comentario, ...)
+    + validar(): tuple[bool, str]
+    + salvar(): tuple[bool, str]
+    + excluir(): tuple[bool, str]
+    
+    ' Métodos estáticos
+    + {static} listar_por_livro(livro_id): list[Avaliacao]
+    + {static} calcular_media_livro(livro_id): float
+    + {static} _from_db_row(row): Avaliacao
+    
+    ' Métodos privados
+    - _usuario_ja_avaliou(db): bool
+    - _buscar_ultimo_id(db): int
+}
+
+class Notificacao {
+    - id: int
+    - usuario_id: int
+    - tipo: TipoNotificacao
+    - titulo: str
+    - mensagem: str
+    - status: StatusNotificacao
+    - data_criacao: datetime
+    - data_leitura: datetime
+    - ativa: bool
+    - livro_id: int
+    
+    + __init__(usuario_id, tipo, titulo, mensagem, ...)
+    + validar(): tuple[bool, str]
+    + salvar(): tuple[bool, str]
+    + marcar_como_lida(): tuple[bool, str]
+    + arquivar(): tuple[bool, str]
+    + excluir(): tuple[bool, str]
+    
+    ' Métodos estáticos
+    + {static} listar_por_usuario(usuario_id, apenas_nao_lidas): list[Notificacao]
+    + {static} contar_nao_lidas(usuario_id): int
+    + {static} criar_notificacao_sistema(usuario_id, titulo, mensagem, livro_id): Notificacao
+    + {static} _from_db_row(row): Notificacao
+    
+    ' Métodos privados
+    - _buscar_ultimo_id(db): int
+}
+
+class Emprestimo {
+    - id: int
+    - usuario_id: int
+    - livro_id: int
+    - biblioteca_id: int
+    - data_emprestimo: datetime
+    - data_prevista_devolucao: datetime
+    - data_devolucao: datetime
+    - status: StatusEmprestimo
+    - tipo: TipoEmprestimo
+    - valor_multa: float
+    - dias_emprestimo: int
+    - renovacoes: int
+    - max_renovacoes: int
+    - observacoes: str
+    
+    + __init__(usuario_id, livro_id, biblioteca_id, dias_emprestimo, tipo, max_renovacoes, observacoes)
+    + validar_dados(): tuple[bool, str]
+    + esta_em_atraso(): bool
+    + dias_atraso(): int
+    + calcular_multa(valor_diario): float
+    + atualizar_status(): void
+    + pode_renovar(): tuple[bool, str]
+    + renovar(dias_adicionais): tuple[bool, str]
+    + devolver(observacoes_devolucao): tuple[bool, str]
+    + cancelar(motivo): tuple[bool, str]
+    + salvar(): tuple[bool, str]
+    + obter_dias_restantes(): int
+    
+    + {static} listar_todos(limite, incluir_devolvidos): list[Emprestimo]
+    + {static} buscar_por_usuario(usuario_id, apenas_ativos): list[Emprestimo]
+    + {static} buscar_por_livro(livro_id): list[Emprestimo]
+    + {static} buscar_atrasados(): list[Emprestimo]
+    + {static} buscar_por_id(emprestimo_id): Emprestimo
+    + {static} estatisticas_biblioteca(biblioteca_id): dict
+}
+
+' ========== ENUMS ==========
+
+enum TipoNotificacao {
+    EMPRESTIMO
+    DEVOLUCAO
+    RESERVA
+    MULTA
+    SISTEMA
+    PROMOCAO
+}
+
+enum StatusNotificacao {
+    NAO_LIDA
+    LIDA
+    ARQUIVADA
+}
+
+enum StatusBiblioteca {
+    ABERTA
+    FECHADA
+    MANUTENCAO
+}
+
+enum StatusEmprestimo {
+    ATIVO
+    DEVOLVIDO
+    ATRASADO
+    RENOVADO
+    CANCELADO
+}
+
+enum TipoEmprestimo {
+    NORMAL
+    RESERVA
+    RENOVACAO
+}
+
+' ========== RELACIONAMENTOS ==========
+
+' Relacionamentos de Herança
+Usuario <|-- Aluno : ""
+Usuario <|-- Professor : ""
+Usuario <|-- Bibliotecario : ""
+
+' Relacionamentos diretos entre as classes (Foreign Keys)
+Usuario ||--o{ Avaliacao : "1...*"
+Livro ||--o{ Avaliacao : "1...*"
+
+Usuario ||--o{ Notificacao : "1...*"
+Livro ||--o{ Notificacao : "0...*"
+
+Usuario ||--o{ Emprestimo : "1...*"
+Livro ||--o{ Emprestimo : "1...*"
+Biblioteca ||--o{ Emprestimo : "1...*"
+
+' Composições com Enums
+Notificacao --> TipoNotificacao : ""
+Notificacao --> StatusNotificacao : ""
+Biblioteca --> StatusBiblioteca : ""
+Emprestimo --> StatusEmprestimo : ""
+Emprestimo --> TipoEmprestimo : ""
+
+
+@enduml

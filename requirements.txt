@@ -1,0 +1,119 @@
+# Sistema de Biblioteca - Requirements e Regras
+
+## Dependências do Projeto
+
+### Python Packages
+```
+pyodbc==4.0.39          # Conexão com SQL Server
+python-dotenv==1.0.0    # Gerenciamento de variáveis de ambiente
+datetime                # Manipulação de datas (built-in)
+typing                  # Type hints (built-in)
+```
+
+### Sistema
+- Python 3.8+
+- Docker Desktop
+- SQL Server ODBC Driver
+
+## Regras de Negócio Implementadas
+
+### 1. Gerenciamento de Livros
+- **Inserção**: Livros devem ter nome, autor, ISBN único e gênero
+- **Atualização**: Permite alteração de todos os campos exceto ID
+- **Validação**: ISBN deve seguir padrão internacional
+- **Exclusão**: Soft delete para manter histórico
+
+### 2. Controle de Usuários
+- **Alunos**: Matrícula única, nome completo, curso
+- **Professores**: Registro funcional, nome, departamento
+- **Bibliotecário**: Acesso completo ao sistema
+
+### 3. Sistema de Empréstimos
+- **Prazo Aluno**: 7 dias
+- **Prazo Professor**: 14 dias
+- **Limite Aluno**: 3 livros simultâneos
+- **Limite Professor**: 5 livros simultâneos
+- **Renovação**: Máximo 2 renovações se não há fila de espera
+
+### 4. Multas e Penalidades
+- **Valor Diário**: R$ 2,00 por dia de atraso
+- **Máximo**: R$ 50,00 por livro
+- **Bloqueio**: Usuário bloqueado com 3+ livros em atraso
+- **Pagamento**: Quitação obrigatória para novos empréstimos
+
+### 5. Lista de Espera
+- **Fila FIFO**: Primeiro a solicitar, primeiro a receber
+- **Notificação**: 24h para retirada quando disponível
+- **Expiração**: Reserva expira após 48h sem retirada
+
+### 6. Sistema de Avaliação
+- **Escala**: 1 a 5 estrelas
+- **Comentários**: Opcional, máximo 500 caracteres
+- **Restrição**: Apenas após devolução do livro
+- **Moderação**: Bibliotecário pode remover avaliações inadequadas
+
+### 7. Notificações
+- **Vencimento**: 2 dias antes do prazo
+- **Atraso**: Diária após vencimento
+- **Disponibilidade**: Livro disponível na fila de espera
+- **Multas**: Cobrança pendente
+
+### 8. Segurança e Acesso
+- **Autenticação**: Login obrigatório
+- **Autorização**: Níveis de acesso por tipo de usuário
+- **Auditoria**: Log de todas as operações críticas
+- **Backup**: Backup diário automático
+
+## Arquitetura do Sistema
+
+### Frontend
+- Interface Web responsiva
+- Dashboards específicos por tipo de usuário
+- Notificações em tempo real
+
+### Backend
+- API RESTful
+- Validação de dados
+- Lógica de negócio centralizada
+- Integração com banco de dados
+
+### Banco de Dados
+- SQL Server 2022
+- Containerizado com Docker
+- Backup automatizado
+- Índices otimizados
+
+## Instalação e Configuração
+
+1. **Clonar repositório**
+2. **Instalar Python dependencies**: `pip install -r requirements.txt`
+3. **Configurar banco**: `docker-compose up -d`
+4. **Configurar variáveis**: Copiar `.env.example` para `.env`
+5. **Executar sistema**: `python __init__.py`
+
+## Desenvolvimento
+
+### Padrões de Código
+- PEP 8 para Python
+- Type hints obrigatórios
+- Documentação em docstrings
+- Testes unitários
+
+### Estrutura de Commits
+- feat: Nova funcionalidade
+- fix: Correção de bug
+- docs: Documentação
+- refactor: Refatoração
+- test: Testes
+
+## Manutenção
+
+### Monitoramento
+- Logs de aplicação
+- Métricas de performance
+- Alertas de sistema
+
+### Atualizações
+- Versionamento semântico
+- Changelog documentado
+- Testes de regressão
