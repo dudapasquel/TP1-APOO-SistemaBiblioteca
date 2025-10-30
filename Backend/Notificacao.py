@@ -230,4 +230,4 @@ class Notificacao:
         return f"Notificacao(id={self.id}, usuario_id={self.usuario_id}, tipo={self.tipo.value})"
 
     def __repr__(self) -> str:
-        return f"Notificacao(id={self.id}, usuario_id={self.usuario_id}, titulo='{self.titulo}', status={self.status.value})"
+        return f"Notificacao(id={self.id}, usuario_id={self.usuaraio_id}, titulo='{self.titulo}', status={self.status.value})"

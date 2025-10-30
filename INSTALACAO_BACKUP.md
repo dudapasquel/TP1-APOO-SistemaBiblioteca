@@ -13,6 +13,45 @@ O sistema funciona neste computador porque tem:
 
 ## 🚀 **Como usar em outro computador**
 
+### **Como Fazer Backup do Banco via Docker**
+
+Se você já está usando o Docker para rodar o SQL Server, pode gerar um backup atualizado do banco de dados facilmente. Siga os passos abaixo:
+
+#### 1️⃣ Gere o backup do banco atual
+
+No terminal, dentro da pasta `Banco_de_dados`, execute:
+
+```bash
+# Gere o backup do banco 'SistemaBiblioteca' para um arquivo dentro do container
+docker exec -it sqlserver \
+	/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "BibliotecaFort3!" \
+	-Q "BACKUP DATABASE [SistemaBiblioteca] TO DISK = N'/var/opt/mssql/backup/sistema_biblioteca_backup.sql' WITH INIT"
+```
+
+#### 2️⃣ Copie o arquivo de backup do container para sua máquina
+
+```bash
+# Crie a pasta local se necessário
+mkdir -p Banco_de_dados/backup
+
+# Copie o arquivo do container para a pasta local
+docker cp sqlserver:/var/opt/mssql/backup/sistema_biblioteca_backup.sql Banco_de_dados/backup/
+```
+
+O arquivo `sistema_biblioteca_backup.sql` estará disponível em `Banco_de_dados/backup/`.
+
+#### 3️⃣ (Opcional) Restaure o backup em outro ambiente
+
+Para restaurar o backup em outro container ou servidor SQL Server, use:
+
+```bash
+docker exec -it sqlserver \
+	/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "BibliotecaFort3!" \
+	-Q "RESTORE DATABASE [SistemaBiblioteca] FROM DISK = N'/var/opt/mssql/backup/sistema_biblioteca_backup.sql' WITH REPLACE"
+```
+
+---
+
 ### **Opção 1: SQL Server**
 
 #### 2️⃣ **Executar o Backup**
