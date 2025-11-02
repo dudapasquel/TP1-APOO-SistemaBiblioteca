@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from typing import Optional
 
@@ -8,13 +7,25 @@ class Avaliacao:
                  comentario: Optional[str] = None, id: Optional[int] = None,
                  data_avaliacao: Optional[datetime] = None, ativa: bool = True):
         
-        self.id = id
+        self._id = id
         self.livro_id = livro_id
         self.usuario_id = usuario_id
         self.nota = nota
         self.comentario = comentario
         self.data_avaliacao = data_avaliacao or datetime.now()
-        self.ativa = ativa
+        self._ativa = ativa
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def ativa(self):
+        return self._ativa
+
+    @ativa.setter
+    def ativa(self, valor: bool):
+        self._ativa = valor
     
     def validar(self) -> tuple[bool, str]:
         

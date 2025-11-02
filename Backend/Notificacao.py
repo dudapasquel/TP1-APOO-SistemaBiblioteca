@@ -25,7 +25,7 @@ class Notificacao:
                  data_criacao: Optional[datetime] = None, data_leitura: Optional[datetime] = None,
                  ativa: bool = True, livro_id: Optional[int] = None):
 
-        self.id = id
+        self._id = id
         self.usuario_id = usuario_id
         self.tipo = tipo
         self.titulo = titulo
@@ -33,9 +33,20 @@ class Notificacao:
         self.status = status
         self.data_criacao = data_criacao or datetime.now()
         self.data_leitura = data_leitura
-        self.ativa = ativa
+        self._ativa = ativa
         self.livro_id = livro_id
 
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def ativa(self):
+        return self._ativa
+
+    @ativa.setter
+    def ativa(self, valor: bool):
+        self._ativa = valor
     def validar(self) -> tuple[bool, str]:
 
         if not self.usuario_id or self.usuario_id <= 0:

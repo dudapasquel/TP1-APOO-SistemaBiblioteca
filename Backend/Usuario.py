@@ -1,56 +1,94 @@
-
 from datetime import datetime
 from typing import Optional
 import hashlib
 
+
 class Usuario:
 
-    def __init__(self, nome: str, email: str, senha: str, tipo_usuario: str,
-                 matricula: Optional[str] = None, curso: Optional[str] = None,
-                 departamento: Optional[str] = None, id: Optional[int] = None,
-                 ativo: bool = True, data_cadastro: Optional[datetime] = None,
-                 data_atualizacao: Optional[datetime] = None):
-
-        self.id = id
-        self.nome = nome
-        self.email = email
-        self.senha = self._criptografar_senha(senha) if not self._eh_senha_criptografada(senha) else senha
-        self.tipo_usuario = tipo_usuario
-        self.matricula = matricula
+    def __init__(
+        self, nome: str, email: str, senha: str, tipo_usuario: str,
+        matricula: Optional[str] = None, curso: Optional[str] = None,
+        departamento: Optional[str] = None, id: Optional[int] = None,
+        ativo: bool = True, data_cadastro: Optional[datetime] = None,
+        data_atualizacao: Optional[datetime] = None
+    ):
+        self._id = id
+        self._nome = nome
+        self._email = email
+        self._senha = self._criptografar_senha(senha) if not self._eh_senha_criptografada(senha) else senha
+        self._tipo_usuario = tipo_usuario
+        self._matricula = matricula
         self.curso = curso
         self.departamento = departamento
         self.ativo = ativo
         self.data_cadastro = data_cadastro
         self.data_atualizacao = data_atualizacao
 
-    def _criptografar_senha(self, senha: str) -> str:
+    @property
+    def id(self):
+        return self._id
 
+    @property
+    def nome(self):
+        return self._nome
+
+    @nome.setter
+    def nome(self, novo_nome):
+        if len(novo_nome.strip()) < 2:
+            raise ValueError("Nome deve ter pelo menos 2 caracteres")
+        self._nome = novo_nome
+
+    @property
+    def email(self):
+        return self._email
+
+    @email.setter
+    def email(self, novo_email):
+        if '@' not in novo_email:
+            raise ValueError("Email inválido")
+        self._email = novo_email
+
+    @property
+    def senha(self):
+        return self._senha
+
+    @senha.setter
+    def senha(self, nova_senha):
+        self._senha = self._criptografar_senha(nova_senha)
+
+    @property
+    def tipo_usuario(self):
+        return self._tipo_usuario
+
+    @property
+    def ativo(self):
+        return self._ativo
+
+    @ativo.setter
+    def ativo(self, valor):
+        self._ativo = valor
+
+    def _criptografar_senha(self, senha: str) -> str:
         return hashlib.md5(senha.encode()).hexdigest()
 
     def _eh_senha_criptografada(self, senha: str) -> bool:
-
         return len(senha) == 32 and all(c in '0123456789abcdef' for c in senha.lower())
 
     def verificar_senha(self, senha: str) -> bool:
-
         senha_criptografada = self._criptografar_senha(senha)
         return senha_criptografada == self.senha
 
     def alterar_senha(self, nova_senha: str) -> None:
-
         self.senha = self._criptografar_senha(nova_senha)
 
     def __str__(self) -> str:
-
         return f"Usuario(id={self.id}, nome='{self.nome}', tipo='{self.tipo_usuario}')"
 
     def __repr__(self) -> str:
-
         return (f"Usuario(id={self.id}, nome='{self.nome}', email='{self.email}', "
                 f"tipo='{self.tipo_usuario}', ativo={self.ativo})")
 
     def to_dict(self) -> dict:
-
         return {
             'id': self.id,
             'nome': self.nome,
@@ -66,7 +104,6 @@ class Usuario:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'Usuario':
-
         return cls(
             id=data.get('id'),
             nome=data['nome'],
@@ -82,7 +119,6 @@ class Usuario:
         )
 
     def validar(self) -> tuple[bool, str]:
-
         if not self.nome or len(self.nome.strip()) < 2:
             return False, "Nome deve ter pelo menos 2 caracteres"
 
@@ -104,7 +140,6 @@ class Usuario:
         return True, "Usuário válido"
 
     def salvar(self) -> tuple[bool, str]:
-
         from Banco_de_dados.connection import DatabaseConnection
 
         valido, mensagem = self.validar()
@@ -119,14 +154,13 @@ class Usuario:
             return self._atualizar(db)
 
     def _inserir(self, db) -> tuple[bool, str]:
-
         if self._email_existe(db, self.email):
             return False, f"Email {self.email} já está em uso"
 
         try:
             query = "INSERT INTO Usuario (Nome, Email, Senha, Tipo, Matricula, Curso, Departamento) VALUES (?, ?, ?, ?, ?, ?, ?)"
             params = (self.nome, self.email, self.senha, self.tipo_usuario,
-                     self.matricula, self.curso, self.departamento)
+                      self.matricula, self.curso, self.departamento)
 
             if db.execute_non_query(query, params):
                 self.id = self._buscar_ultimo_id(db)
@@ -143,7 +177,6 @@ class Usuario:
             return False, mensagem
 
     def _atualizar(self, db) -> tuple[bool, str]:
-
         if not self._existe_por_id(db, self.id):
             return False, f"Usuário com ID {self.id} não encontrado"
 
@@ -154,7 +187,7 @@ class Usuario:
         try:
             query = "UPDATE Usuario SET Nome = ?, Email = ?, Tipo = ?, Matricula = ?, Curso = ?, Departamento = ? WHERE Id = ?"
             params = (self.nome, self.email, self.tipo_usuario, self.matricula,
-                     self.curso, self.departamento, self.id)
+                      self.curso, self.departamento, self.id)
 
             if db.execute_non_query(query, params):
                 mensagem = f"Usuário '{self.nome}' atualizado com sucesso!"
@@ -166,7 +199,6 @@ class Usuario:
             return False, f"Erro ao atualizar usuário: {e}"
 
     def excluir(self) -> tuple[bool, str]:
-
         from Banco_de_dados.connection import DatabaseConnection
 
         if not self.id:
@@ -187,7 +219,6 @@ class Usuario:
 
     @staticmethod
     def autenticar(email: str, senha: str) -> tuple[bool, Optional['Usuario'], str]:
-
         usuario = Usuario.buscar_por_email(email)
 
         if not usuario:
@@ -203,7 +234,6 @@ class Usuario:
 
     @staticmethod
     def listar_todos(limite: int = 100, incluir_inativos: bool = False) -> list['Usuario']:
-
         from Banco_de_dados.connection import DatabaseConnection
 
         db = DatabaseConnection()
@@ -229,7 +259,6 @@ class Usuario:
 
     @staticmethod
     def buscar_por_email(email: str) -> Optional['Usuario']:
-
         from Banco_de_dados.connection import DatabaseConnection
 
         db = DatabaseConnection()
@@ -249,7 +278,6 @@ class Usuario:
 
     @staticmethod
     def buscar_por_id(usuario_id: int) -> Optional['Usuario']:
-
         from Banco_de_dados.connection import DatabaseConnection
 
         db = DatabaseConnection()
@@ -269,7 +297,6 @@ class Usuario:
 
     @staticmethod
     def _from_db_row(row) -> 'Usuario':
-
         return Usuario(
             id=row['Id'],
             nome=row['Nome'],
@@ -285,7 +312,6 @@ class Usuario:
         )
 
     def _email_existe(self, db, email: str) -> bool:
-
         try:
             query = "SELECT COUNT(*) FROM Usuario WHERE Email = ?"
             resultado = db.execute_scalar(query, (email,))
@@ -294,7 +320,6 @@ class Usuario:
             return False
 
     def _existe_por_id(self, db, usuario_id: int) -> bool:
-
         try:
             query = "SELECT COUNT(*) FROM Usuario WHERE Id = ?"
             resultado = db.execute_scalar(query, (usuario_id,))
@@ -303,7 +328,6 @@ class Usuario:
             return False
 
     def _buscar_ultimo_id(self, db) -> Optional[int]:
-
         try:
             query = "SELECT SCOPE_IDENTITY()"
             resultado = db.execute_query(query)

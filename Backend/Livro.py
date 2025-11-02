@@ -1,19 +1,59 @@
 from datetime import datetime
 from typing import Optional
 
+
+# Provide a lowercase alias for the module name so imports like `from Backend.livro import Livro`
+# work on systems where filenames are case-insensitive but import names are expected lowercase.
+import sys
+sys.modules.setdefault('Backend.livro', sys.modules.get(__name__))
+
+
 class Livro:
 
     def __init__(self, nome: str, autor: str, isbn: str, genero: str,
                  id: Optional[int] = None, data_cadastro: Optional[datetime] = None,
                  data_atualizacao: Optional[datetime] = None, ativo: bool = True):
-        self.id = id
-        self.nome = nome
+        self._id = id
+        self._nome = nome
         self.autor = autor
-        self.isbn = isbn
+        self._isbn = isbn
         self.genero = genero
         self.data_cadastro = data_cadastro
         self.data_atualizacao = data_atualizacao
-        self.ativo = ativo
+        self._ativo = ativo
+
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def nome(self):
+        return self._nome
+
+    @nome.setter
+    def nome(self, novo_nome):
+        if len(novo_nome.strip()) < 2:
+            raise ValueError("Nome do livro deve ter pelo menos 2 caracteres")
+        self._nome = novo_nome
+
+    @property
+    def isbn(self):
+        return self._isbn
+
+    @isbn.setter
+    def isbn(self, novo_isbn):
+        if len(novo_isbn.strip()) < 10:
+            raise ValueError("ISBN deve ter pelo menos 10 caracteres")
+        self._isbn = novo_isbn
+
+    @property
+    def ativo(self):
+        return self._ativo
+
+    @ativo.setter
+    def ativo(self, valor: bool):
+        self._ativo = valor
 
     def __str__(self) -> str:
         return f"Livro(id={self.id}, nome='{self.nome}', autor='{self.autor}', isbn='{self.isbn}')"
