@@ -1,32 +1,32 @@
 from datetime import datetime
 from typing import Optional
 import hashlib
+from abc import ABC, abstractmethod
 
 
-class Usuario:
+class Usuario(ABC):
 
     def __init__(
-        self, nome: str, email: str, senha: str, tipo_usuario: str,
-        matricula: Optional[str] = None, curso: Optional[str] = None,
-        departamento: Optional[str] = None, id: Optional[int] = None,
+        self, nome: str, email: str, senha: str, id: Optional[int] = None,
         ativo: bool = True, data_cadastro: Optional[datetime] = None,
         data_atualizacao: Optional[datetime] = None
     ):
         self._id = id
         self._nome = nome
         self._email = email
-        self._senha = self._criptografar_senha(senha) if not self._eh_senha_criptografada(senha) else senha
-        self._tipo_usuario = tipo_usuario
-        self._matricula = matricula
-        self.curso = curso
-        self.departamento = departamento
-        self.ativo = ativo
-        self.data_cadastro = data_cadastro
-        self.data_atualizacao = data_atualizacao
+        self._senha = self._criptografar_senha(
+            senha) if not self._eh_senha_criptografada(senha) else senha
+        self._ativo = ativo
+        self._data_cadastro = data_cadastro
+        self._data_atualizacao = data_atualizacao
 
     @property
     def id(self):
         return self._id
+
+    @id.setter
+    def id(self, valor):
+        self._id = valor
 
     @property
     def nome(self):
@@ -57,8 +57,9 @@ class Usuario:
         self._senha = self._criptografar_senha(nova_senha)
 
     @property
+    @abstractmethod
     def tipo_usuario(self):
-        return self._tipo_usuario
+        pass
 
     @property
     def ativo(self):
@@ -68,55 +69,62 @@ class Usuario:
     def ativo(self, valor):
         self._ativo = valor
 
+    @property
+    def data_cadastro(self):
+        return self._data_cadastro
+
+    @property
+    def data_atualizacao(self):
+        return self._data_atualizacao
+
+    @abstractmethod
+    def validar_dados_especificos(self) -> tuple[bool, str]:
+        pass
+
+    @abstractmethod
+    def obter_dados_para_banco(self) -> dict:
+        pass
+
+    @property
+    def matricula(self):
+        return getattr(self, '_matricula', None)
+
+    @property
+    def curso(self):
+        return getattr(self, '_curso', None)
+
+    @property
+    def departamento(self):
+        return getattr(self, '_departamento', None)
+
     def _criptografar_senha(self, senha: str) -> str:
         return hashlib.md5(senha.encode()).hexdigest()
 
     def _eh_senha_criptografada(self, senha: str) -> bool:
-        return len(senha) == 32 and all(c in '0123456789abcdef' for c in senha.lower())
+        return len(senha) == 32 and all(
+            c in '0123456789abcdef' for c in senha.lower())
 
     def verificar_senha(self, senha: str) -> bool:
         senha_criptografada = self._criptografar_senha(senha)
         return senha_criptografada == self.senha
 
-    def alterar_senha(self, nova_senha: str) -> None:
-        self.senha = self._criptografar_senha(nova_senha)
-
     def __str__(self) -> str:
         return f"Usuario(id={self.id}, nome='{self.nome}', tipo='{self.tipo_usuario}')"
 
     def __repr__(self) -> str:
-        return (f"Usuario(id={self.id}, nome='{self.nome}', email='{self.email}', "
-                f"tipo='{self.tipo_usuario}', ativo={self.ativo})")
+        return (
+            f"Usuario(id={self.id}, nome='{self.nome}', email='{self.email}', "
+            f"tipo='{self.tipo_usuario}', ativo={self.ativo})")
 
     def to_dict(self) -> dict:
-        return {
+        dados = self.obter_dados_para_banco()
+        dados.update({
             'id': self.id,
-            'nome': self.nome,
-            'email': self.email,
-            'tipo_usuario': self.tipo_usuario,
-            'matricula': self.matricula,
-            'curso': self.curso,
-            'departamento': self.departamento,
             'ativo': self.ativo,
             'data_cadastro': self.data_cadastro.isoformat() if self.data_cadastro else None,
             'data_atualizacao': self.data_atualizacao.isoformat() if self.data_atualizacao else None
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> 'Usuario':
-        return cls(
-            id=data.get('id'),
-            nome=data['nome'],
-            email=data['email'],
-            senha=data['senha'],
-            tipo_usuario=data['tipo_usuario'],
-            matricula=data.get('matricula'),
-            curso=data.get('curso'),
-            departamento=data.get('departamento'),
-            ativo=data.get('ativo', True),
-            data_cadastro=datetime.fromisoformat(data['data_cadastro']) if data.get('data_cadastro') else None,
-            data_atualizacao=datetime.fromisoformat(data['data_atualizacao']) if data.get('data_atualizacao') else None
-        )
+        })
+        return dados
 
     def validar(self) -> tuple[bool, str]:
         if not self.nome or len(self.nome.strip()) < 2:
@@ -125,19 +133,7 @@ class Usuario:
         if not self.email or '@' not in self.email:
             return False, "Email deve ser válido"
 
-        if self.tipo_usuario not in ['Bibliotecario', 'Aluno', 'Professor']:
-            return False, "Tipo de usuário deve ser Bibliotecario, Aluno ou Professor"
-
-        if self.tipo_usuario in ['Aluno', 'Professor'] and not self.matricula:
-            return False, f"{self.tipo_usuario} deve ter matrícula"
-
-        if self.tipo_usuario == 'Aluno' and not self.curso:
-            return False, "Aluno deve ter curso"
-
-        if self.tipo_usuario == 'Professor' and not self.departamento:
-            return False, "Professor deve ter departamento"
-
-        return True, "Usuário válido"
+        return self.validar_dados_especificos()
 
     def salvar(self) -> tuple[bool, str]:
         from Banco_de_dados.connection import DatabaseConnection
@@ -158,9 +154,16 @@ class Usuario:
             return False, f"Email {self.email} já está em uso"
 
         try:
-            query = "INSERT INTO Usuario (Nome, Email, Senha, Tipo, Matricula, Curso, Departamento) VALUES (?, ?, ?, ?, ?, ?, ?)"
-            params = (self.nome, self.email, self.senha, self.tipo_usuario,
-                      self.matricula, self.curso, self.departamento)
+            dados = self.obter_dados_para_banco()
+            query = "INSERT INTO Usuario (Nome, Email, Senha, TipoUsuario, Matricula, Curso, Departamento) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            params = (
+                dados['nome'],
+                dados['email'],
+                dados['senha'],
+                dados['tipo_usuario'],
+                dados.get('matricula'),
+                dados.get('curso'),
+                dados.get('departamento'))
 
             if db.execute_non_query(query, params):
                 self.id = self._buscar_ultimo_id(db)
@@ -185,9 +188,16 @@ class Usuario:
             return False, f"Email {self.email} já está sendo usado por outro usuário"
 
         try:
-            query = "UPDATE Usuario SET Nome = ?, Email = ?, Tipo = ?, Matricula = ?, Curso = ?, Departamento = ? WHERE Id = ?"
-            params = (self.nome, self.email, self.tipo_usuario, self.matricula,
-                      self.curso, self.departamento, self.id)
+            dados = self.obter_dados_para_banco()
+            query = "UPDATE Usuario SET Nome = ?, Email = ?, TipoUsuario = ?, Matricula = ?, Curso = ?, Departamento = ? WHERE Id = ?"
+            params = (
+                dados['nome'],
+                dados['email'],
+                dados['tipo_usuario'],
+                dados.get('matricula'),
+                dados.get('curso'),
+                dados.get('departamento'),
+                self.id)
 
             if db.execute_non_query(query, params):
                 mensagem = f"Usuário '{self.nome}' atualizado com sucesso!"
@@ -199,6 +209,7 @@ class Usuario:
             return False, f"Erro ao atualizar usuário: {e}"
 
     def excluir(self) -> tuple[bool, str]:
+        """Inativa o usuário (soft delete)"""
         from Banco_de_dados.connection import DatabaseConnection
 
         if not self.id:
@@ -217,8 +228,31 @@ class Usuario:
         except Exception as e:
             return False, f"Erro ao inativar usuário: {e}"
 
+    def ativar(self) -> tuple[bool, str]:
+        """Ativa o usuário"""
+        from Banco_de_dados.connection import DatabaseConnection
+
+        if not self.id:
+            return False, "ID do usuário é obrigatório para ativação"
+
+        db = DatabaseConnection()
+
+        try:
+            query = "UPDATE Usuario SET Ativo = 1 WHERE Id = ?"
+            if db.execute_non_query(query, (self.id,)):
+                self.ativo = True
+                return True, f"Usuário '{self.nome}' ativado com sucesso!"
+            else:
+                return False, f"Falha ao ativar usuário '{self.nome}'"
+
+        except Exception as e:
+            return False, f"Erro ao ativar usuário: {e}"
+
     @staticmethod
-    def autenticar(email: str, senha: str) -> tuple[bool, Optional['Usuario'], str]:
+    def autenticar(email: str,
+                   senha: str) -> tuple[bool,
+                                        Optional['Usuario'],
+                                        str]:
         usuario = Usuario.buscar_por_email(email)
 
         if not usuario:
@@ -233,7 +267,9 @@ class Usuario:
         return True, usuario, "Login realizado com sucesso"
 
     @staticmethod
-    def listar_todos(limite: int = 100, incluir_inativos: bool = False) -> list['Usuario']:
+    def listar_todos(
+            limite: int = 100,
+            incluir_inativos: bool = False) -> list['Usuario']:
         from Banco_de_dados.connection import DatabaseConnection
 
         db = DatabaseConnection()
@@ -297,26 +333,52 @@ class Usuario:
 
     @staticmethod
     def _from_db_row(row) -> 'Usuario':
-        return Usuario(
-            id=row['Id'],
-            nome=row['Nome'],
-            email=row['Email'],
-            senha=row['Senha'],
-            tipo_usuario=row['TipoUsuario'],
-            matricula=row['Matricula'],
-            curso=row['Curso'],
-            departamento=row['Departamento'],
-            ativo=bool(row['Ativo']),
-            data_cadastro=row['DataCadastro'],
-            data_atualizacao=row['DataAtualizacao']
-        )
+        tipo = row['TipoUsuario']
+
+        kwargs = {
+            'id': row['Id'],
+            'ativo': bool(row['Ativo']),
+            'data_cadastro': row['DataCadastro'],
+            'data_atualizacao': row['DataAtualizacao']
+        }
+
+        if tipo == "Aluno":
+            from Backend.Aluno import Aluno
+            return Aluno(
+                nome=row['Nome'],
+                email=row['Email'],
+                senha=row['Senha'],
+                matricula=row['Matricula'],
+                curso=row['Curso'],
+                **kwargs
+            )
+        elif tipo == "Professor":
+            from Backend.Professor import Professor
+            return Professor(
+                nome=row['Nome'],
+                email=row['Email'],
+                senha=row['Senha'],
+                matricula=row['Matricula'],
+                departamento=row['Departamento'],
+                **kwargs
+            )
+        elif tipo == "Bibliotecario":
+            from Backend.Bibliotecario import Bibliotecario
+            return Bibliotecario(
+                nome=row['Nome'],
+                email=row['Email'],
+                senha=row['Senha'],
+                **kwargs
+            )
+        else:
+            raise ValueError(f"Tipo de usuário '{tipo}' não reconhecido")
 
     def _email_existe(self, db, email: str) -> bool:
         try:
             query = "SELECT COUNT(*) FROM Usuario WHERE Email = ?"
             resultado = db.execute_scalar(query, (email,))
             return resultado and resultado > 0
-        except:
+        except BaseException:
             return False
 
     def _existe_por_id(self, db, usuario_id: int) -> bool:
@@ -324,7 +386,7 @@ class Usuario:
             query = "SELECT COUNT(*) FROM Usuario WHERE Id = ?"
             resultado = db.execute_scalar(query, (usuario_id,))
             return resultado and resultado > 0
-        except:
+        except BaseException:
             return False
 
     def _buscar_ultimo_id(self, db) -> Optional[int]:
@@ -332,5 +394,5 @@ class Usuario:
             query = "SELECT SCOPE_IDENTITY()"
             resultado = db.execute_query(query)
             return int(resultado[0][0]) if resultado else None
-        except:
+        except BaseException:
             return None

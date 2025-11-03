@@ -1,18 +1,25 @@
 from datetime import datetime
 from typing import Optional
 
-
-# Provide a lowercase alias for the module name so imports like `from Backend.livro import Livro`
-# work on systems where filenames are case-insensitive but import names are expected lowercase.
 import sys
 sys.modules.setdefault('Backend.livro', sys.modules.get(__name__))
 
 
 class Livro:
 
-    def __init__(self, nome: str, autor: str, isbn: str, genero: str,
-                 id: Optional[int] = None, data_cadastro: Optional[datetime] = None,
-                 data_atualizacao: Optional[datetime] = None, ativo: bool = True):
+    def __init__(
+            self,
+            nome: str,
+            autor: str,
+            isbn: str,
+            genero: str,
+            id: Optional[int] = None,
+            data_cadastro: Optional[datetime] = None,
+            data_atualizacao: Optional[datetime] = None,
+            ativo: bool = True,
+            quantidade_total: int = 5,
+            quantidade_disponivel: Optional[int] = None,
+            quantidade_emprestada: Optional[int] = None):
         self._id = id
         self._nome = nome
         self.autor = autor
@@ -21,7 +28,9 @@ class Livro:
         self.data_cadastro = data_cadastro
         self.data_atualizacao = data_atualizacao
         self._ativo = ativo
-
+        self.quantidade_total = quantidade_total
+        self._quantidade_disponivel = quantidade_disponivel
+        self._quantidade_emprestada = quantidade_emprestada
 
     @property
     def id(self):
@@ -55,12 +64,36 @@ class Livro:
     def ativo(self, valor: bool):
         self._ativo = valor
 
+    @property
+    def quantidade_disponivel(self) -> int:
+        """Retorna a quantidade disponível para empréstimo"""
+        if self._quantidade_disponivel is not None:
+            return self._quantidade_disponivel
+
+        return max(0, self.quantidade_total -
+                   (self._quantidade_emprestada or 0))
+
+    @property
+    def quantidade_emprestada(self) -> int:
+        """Retorna a quantidade atualmente emprestada"""
+        if self._quantidade_emprestada is not None:
+            return self._quantidade_emprestada
+
+        return max(0, self.quantidade_total -
+                   (self._quantidade_disponivel or self.quantidade_total))
+
+    @property
+    def disponivel_para_emprestimo(self) -> bool:
+        """Verifica se há exemplares disponíveis para empréstimo"""
+        return self.quantidade_disponivel > 0 and self.ativo
+
     def __str__(self) -> str:
         return f"Livro(id={self.id}, nome='{self.nome}', autor='{self.autor}', isbn='{self.isbn}')"
 
     def __repr__(self) -> str:
-        return (f"Livro(id={self.id}, nome='{self.nome}', autor='{self.autor}', "
-                f"isbn='{self.isbn}', genero='{self.genero}', ativo={self.ativo})")
+        return (
+            f"Livro(id={self.id}, nome='{self.nome}', autor='{self.autor}', "
+            f"isbn='{self.isbn}', genero='{self.genero}', ativo={self.ativo})")
 
     def to_dict(self) -> dict:
         return {
@@ -71,8 +104,11 @@ class Livro:
             'genero': self.genero,
             'data_cadastro': self.data_cadastro.isoformat() if self.data_cadastro else None,
             'data_atualizacao': self.data_atualizacao.isoformat() if self.data_atualizacao else None,
-            'ativo': self.ativo
-        }
+            'ativo': self.ativo,
+            'quantidade_total': self.quantidade_total,
+            'quantidade_disponivel': self.quantidade_disponivel,
+            'quantidade_emprestada': self.quantidade_emprestada,
+            'disponivel_para_emprestimo': self.disponivel_para_emprestimo}
 
     @classmethod
     def from_dict(cls, data: dict) -> 'Livro':
@@ -82,10 +118,13 @@ class Livro:
             autor=data['autor'],
             isbn=data['isbn'],
             genero=data['genero'],
-            data_cadastro=datetime.fromisoformat(data['data_cadastro']) if data.get('data_cadastro') else None,
-            data_atualizacao=datetime.fromisoformat(data['data_atualizacao']) if data.get('data_atualizacao') else None,
-            ativo=data.get('ativo', True)
-        )
+            data_cadastro=datetime.fromisoformat(
+                data['data_cadastro']) if data.get('data_cadastro') else None,
+            data_atualizacao=datetime.fromisoformat(
+                data['data_atualizacao']) if data.get('data_atualizacao') else None,
+            ativo=data.get(
+                'ativo',
+                True))
 
     def validar(self) -> tuple[bool, str]:
         if not self.nome or len(self.nome.strip()) < 2:
@@ -237,23 +276,39 @@ class Livro:
         return self.deletar()
 
     @staticmethod
-    def listar_todos(limite: int = 100, incluir_inativos: bool = False) -> list['Livro']:
+    def listar_todos(
+            limite: int = 100,
+            incluir_inativos: bool = False) -> list['Livro']:
         from Banco_de_dados.connection import DatabaseConnection
 
         db = DatabaseConnection()
 
         try:
+
             if incluir_inativos:
-                query = "SELECT * FROM Livro ORDER BY Nome OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY"
+                query = """
+                SELECT Id, Nome, Autor, ISBN, Genero, QuantidadeTotal,
+                       QuantidadeEmprestada, QuantidadeDisponivel, Ativo, DataCadastro
+                FROM VW_EstoqueLivros
+                ORDER BY Nome
+                OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY
+                """
                 params = (limite,)
             else:
-                query = "SELECT * FROM Livro WHERE Ativo = 1 ORDER BY Nome OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY"
+                query = """
+                SELECT Id, Nome, Autor, ISBN, Genero, QuantidadeTotal,
+                       QuantidadeEmprestada, QuantidadeDisponivel, Ativo, DataCadastro
+                FROM VW_EstoqueLivros
+                WHERE Ativo = 1
+                ORDER BY Nome
+                OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY
+                """
                 params = (limite,)
 
             resultados = db.execute_query(query, params)
 
             if resultados:
-                return [Livro._from_db_row(row) for row in resultados]
+                return [Livro._from_estoque_row(row) for row in resultados]
             else:
                 return []
 
@@ -301,23 +356,64 @@ class Livro:
 
     @staticmethod
     def _from_db_row(row) -> 'Livro':
+
+        quantidade_total = row.get(
+            'QuantidadeTotal',
+            5) if isinstance(
+            row,
+            dict) else getattr(
+            row,
+            'QuantidadeTotal',
+            5)
         return Livro(
-            id=row['Id'],
-            nome=row['Nome'],
-            autor=row['Autor'],
-            isbn=row['ISBN'],
-            genero=row['Genero'],
-            data_cadastro=row['DataCadastro'],
-            data_atualizacao=row['DataAtualizacao'],
-            ativo=bool(row['Ativo'])
+            id=row['Id'] if isinstance(row, dict) else row[0],
+            nome=row['Nome'] if isinstance(row, dict) else row[1],
+            autor=row['Autor'] if isinstance(row, dict) else row[2],
+            isbn=row['ISBN'] if isinstance(row, dict) else row[3],
+            genero=row['Genero'] if isinstance(row, dict) else row[4],
+            data_cadastro=row['DataCadastro'] if isinstance(row, dict) else row[5],
+            data_atualizacao=row['DataAtualizacao'] if isinstance(row, dict) else row[6],
+            ativo=bool(row['Ativo'] if isinstance(row, dict) else row[7]),
+            quantidade_total=quantidade_total
         )
+
+    @staticmethod
+    def _from_estoque_row(row) -> 'Livro':
+
+        if isinstance(row, dict):
+            return Livro(
+                id=row['Id'],
+                nome=row['Nome'],
+                autor=row['Autor'],
+                isbn=row['ISBN'],
+                genero=row['Genero'],
+                data_cadastro=row['DataCadastro'],
+                ativo=bool(row['Ativo']),
+                quantidade_total=row['QuantidadeTotal'],
+                quantidade_disponivel=row['QuantidadeDisponivel'],
+                quantidade_emprestada=row['QuantidadeEmprestada']
+            )
+        else:
+
+            return Livro(
+                id=row[0],
+                nome=row[1],
+                autor=row[2],
+                isbn=row[3],
+                genero=row[4],
+                quantidade_total=row[5],
+                quantidade_emprestada=row[6],
+                quantidade_disponivel=row[7],
+                ativo=bool(row[8]),
+                data_cadastro=row[9]
+            )
 
     def _isbn_existe(self, db, isbn: str) -> bool:
         try:
             query = "SELECT COUNT(*) FROM Livro WHERE ISBN = ?"
             resultado = db.execute_scalar(query, (isbn,))
             return resultado and resultado > 0
-        except:
+        except BaseException:
             return False
 
     def _existe_por_id(self, db, livro_id: int) -> bool:
@@ -325,7 +421,7 @@ class Livro:
             query = "SELECT COUNT(*) FROM Livro WHERE Id = ?"
             resultado = db.execute_scalar(query, (livro_id,))
             return resultado and resultado > 0
-        except:
+        except BaseException:
             return False
 
     def _buscar_ultimo_id(self, db) -> Optional[int]:
@@ -333,5 +429,29 @@ class Livro:
             query = "SELECT SCOPE_IDENTITY()"
             resultado = db.execute_scalar(query)
             return int(resultado) if resultado else None
-        except:
+        except BaseException:
             return None
+
+    @staticmethod
+    def listar_com_estoque() -> list['Livro']:
+        """Lista todos os livros ativos com informações de estoque"""
+        from Banco_de_dados.connection import DatabaseConnection
+
+        db = DatabaseConnection()
+        try:
+            query = """
+                SELECT Id, Nome, Autor, ISBN, Genero, QuantidadeTotal,
+                       QuantidadeEmprestada, QuantidadeDisponivel, Ativo, DataCadastro
+                FROM VW_EstoqueLivros
+                WHERE Ativo = 1
+                ORDER BY Nome
+            """
+
+            resultados = db.execute_query(query)
+            return [Livro._from_estoque_row(row) for row in resultados]
+
+        except Exception as e:
+            print(f"Erro ao listar livros com estoque: {e}")
+            return []
+        finally:
+            db.close()

@@ -3,41 +3,39 @@
 ' Configurações do diagrama
 !theme plain
 skinparam classAttributeIconSize 0
-skinparam classFontSize 10
+skinparam classFontSize 9
 skinparam packageStyle rectangle
 
-title Sistema de Biblioteca - Modelos Backend\nRelacionamentos entre Classes
+title Sistema de Biblioteca - Modelos Backend (Implementação Final)\nRelacionamentos entre Classes
 
-' ========== CLASSES PRINCIPAIS ==========
+' ========== CLASSE ABSTRATA PRINCIPAL ==========
 
 abstract class Usuario {
-    - id: int
-    - nome: str
-    - email: str
-    - senha: str (MD5)
-    - tipo_usuario: str
-    - ativo: bool
-    - data_cadastro: datetime
-    - data_atualizacao: datetime
+    - _id: Optional[int]
+    - _nome: str
+    - _email: str
+    - _senha: str (MD5)
+    - _ativo: bool
+    - _data_cadastro: Optional[datetime]
+    - _data_atualizacao: Optional[datetime]
     
-    + __init__(nome, email, senha, tipo_usuario, ...)
     + verificar_senha(senha: str): bool
-    + alterar_senha(nova_senha: str): void
+    + validar(): tuple[bool, str]
     + salvar(): tuple[bool, str]
     + excluir(): tuple[bool, str]
     + to_dict(): dict
-    + from_dict(data: dict): Usuario
     
-    ' Métodos abstratos (polimorfismo)
-    + {abstract} validar(): tuple[bool, str]
-    + {abstract} obter_permissoes(): list[str]
-    + {abstract} pode_realizar_acao(acao: str): bool
+    ' Properties e Métodos Abstratos (devem ser implementados pelas subclasses)
+    + {abstract} tipo_usuario: @property str
+    + {abstract} validar_dados_especificos(): tuple[bool, str]
+    + {abstract} obter_dados_para_banco(): dict
     
     ' Métodos estáticos
-    + {static} autenticar(email, senha): tuple[bool, Usuario, str]
+    + {static} autenticar(email, senha): tuple[bool, Optional[Usuario], str]
     + {static} listar_todos(limite, incluir_inativos): list[Usuario]
-    + {static} buscar_por_email(email): Usuario
-    + {static} buscar_por_id(id): Usuario
+    + {static} buscar_por_email(email): Optional[Usuario]
+    + {static} buscar_por_id(id): Optional[Usuario]
+    + {static} _from_db_row(row): Usuario
     
     ' Métodos privados
     - _criptografar_senha(senha): str
@@ -46,77 +44,59 @@ abstract class Usuario {
     - _atualizar(db): tuple[bool, str]
     - _email_existe(db, email): bool
     - _existe_por_id(db, id): bool
-    - _buscar_ultimo_id(db): int
+    - _buscar_ultimo_id(db): Optional[int]
 }
 
 ' ========== CLASSES ESPECIALIZADAS (HERANÇA) ==========
 
 class Aluno {
-    - matricula: str
-    - periodo: str
+    - _matricula: str
+    - _curso: str
     
-    + __init__(nome, email, senha, matricula, periodo, ...)
+    ' Implementação dos métodos abstratos da classe pai
+    + tipo_usuario: @property str = "Aluno"
+    + validar_dados_especificos(): tuple[bool, str]
+    + obter_dados_para_banco(): dict
     
-    ' Implementação dos métodos abstratos (polimorfismo)
-    + validar(): tuple[bool, str]
-    + obter_permissoes(): list[str]
-    + pode_realizar_acao(acao: str): bool
-    
-    ' Métodos específicos do Aluno
-    + validar_matricula(): bool
-    + obter_historico_emprestimos(): list[Emprestimo]
-    + pode_emprestar(): tuple[bool, str]
-    + avaliar_livro(livro_id, nota, comentario): tuple[bool, str]
+    ' Properties específicas do Aluno
+    + matricula: @property str
+    + curso: @property str
 }
 
 class Professor {
-    - departamento: str
+    - _matricula: str
+    - _departamento: str
     
-    + __init__(nome, email, senha, departamento, ...)
+    ' Implementação dos métodos abstratos da classe pai
+    + tipo_usuario: @property str = "Professor"
+    + validar_dados_especificos(): tuple[bool, str]
+    + obter_dados_para_banco(): dict
     
-    ' Implementação dos métodos abstratos (polimorfismo)
-    + validar(): tuple[bool, str]
-    + obter_permissoes(): list[str]
-    + pode_realizar_acao(acao: str): bool
-    
-    ' Métodos específicos do Professor
-    + validar_departamento(): bool
-    + solicitar_reserva_prioritaria(livro_id): tuple[bool, str]
-    + fazer_avaliacao_prioritaria(livro_id, nota, comentario): tuple[bool, str]
-    + criar_lista_leitura(disciplina, livros): tuple[bool, str]
+    ' Properties específicas do Professor
+    + matricula: @property str
+    + departamento: @property str
 }
 
 class Bibliotecario {
-    - num_registro: str
-    
-    + __init__(nome, email, senha, num_registro, ...)
-    
-    ' Implementação dos métodos abstratos (polimorfismo)
-    + validar(): tuple[bool, str]
-    + obter_permissoes(): list[str]
-    + pode_realizar_acao(acao: str): bool
-    
-    ' Métodos específicos do Bibliotecario
-    + validar_registro(): bool
-    + gerenciar_emprestimo(usuario_id, livro_id, acao): tuple[bool, str]
-    + processar_devolucao(emprestimo_id): tuple[bool, str]
-    + aplicar_multa(usuario_id, valor, motivo): tuple[bool, str]
-    + gerar_relatorio(tipo, periodo): dict
-    + gerenciar_usuario(acao, usuario_data): tuple[bool, str]
-    + configurar_sistema(parametro, valor): tuple[bool, str]
+    ' Implementação dos métodos abstratos da classe pai
+    + tipo_usuario: @property str = "Bibliotecario"
+    + validar_dados_especificos(): tuple[bool, str]
+    + obter_dados_para_banco(): dict
 }
 
 class Livro {
-    - id: int
-    - nome: str
+    - _id: Optional[int]
+    - _nome: str
     - autor: str
-    - isbn: str
+    - _isbn: str
     - genero: str
-    - data_cadastro: datetime
-    - data_atualizacao: datetime
-    - ativo: bool
+    - data_cadastro: Optional[datetime]
+    - data_atualizacao: Optional[datetime]
+    - _ativo: bool
+    - quantidade_total: int
+    - _quantidade_disponivel: Optional[int]
+    - _quantidade_emprestada: Optional[int]
     
-    + __init__(nome, autor, isbn, genero, ...)
     + validar(): tuple[bool, str]
     + salvar(): tuple[bool, str]
     + excluir(): tuple[bool, str]
@@ -125,48 +105,93 @@ class Livro {
     + pode_ser_deletado(): tuple[bool, str]
     + deletar_com_verificacao(): tuple[bool, str]
     + to_dict(): dict
-    + from_dict(data: dict): Livro
+    
+    ' Properties calculadas
+    + quantidade_disponivel: int
+    + quantidade_emprestada: int
+    + disponivel_para_emprestimo: bool
     
     ' Métodos estáticos
     + {static} listar_todos(limite, incluir_inativos): list[Livro]
-    + {static} buscar_por_isbn(isbn): Livro
-    + {static} buscar_por_id(id): Livro
+    + {static} listar_com_estoque(): list[Livro]
+    + {static} buscar_por_isbn(isbn): Optional[Livro]
+    + {static} buscar_por_id(id): Optional[Livro]
+    + {static} _from_db_row(row): Livro
+    + {static} _from_estoque_row(row): Livro
     
     ' Métodos privados
     - _inserir(db): tuple[bool, str]
     - _atualizar(db): tuple[bool, str]
     - _isbn_existe(db, isbn): bool
     - _existe_por_id(db, id): bool
-    - _buscar_ultimo_id(db): int
-    + {static} _from_db_row(row): Livro
+    - _buscar_ultimo_id(db): Optional[int]
 }
 
-class Biblioteca {
-    - id: int
-    - nome: str
-    - endereco: str
-    - telefone: str
-    - email: str
+class Emprestimo {
+    - id: Optional[int]
+    - usuario_id: int
+    - livro_id: int
+    - biblioteca_id: int
+    - data_emprestimo: datetime
+    - dias_emprestimo: int
+    - data_prevista_devolucao: datetime
+    - data_devolucao: Optional[datetime]
+    - status: str
+    - tipo: str
+    - valor_multa: float
+    - renovacoes: int
+    - max_renovacoes: int
+    - observacoes: Optional[str]
     
-    + __init__(nome, endereco, telefone, email)
     + validar_dados(): tuple[bool, str]
+    + esta_em_atraso(): bool
+    + dias_atraso(): int
+    + calcular_multa(valor_diario): float
+    + atualizar_status(): void
+    + pode_renovar(): tuple[bool, str]
+    + renovar(dias_adicionais): tuple[bool, str]
+    + devolver(data_devolucao, observacoes_devolucao): tuple[bool, str]
+    + cancelar(motivo): tuple[bool, str]
     + salvar(): tuple[bool, str]
+    + obter_dias_restantes(): int
     
-    + {static} listar_todas(): list[Biblioteca]
-    + {static} buscar_por_id(id): Biblioteca
-    + {static} buscar_por_nome(nome): Biblioteca
+    ' Métodos estáticos
+    + {static} listar_por_usuario(usuario_id, apenas_ativos): List[Emprestimo]
+    + {static} buscar_por_usuario(usuario_id, apenas_ativos): List[Emprestimo]
+    + {static} buscar_por_id(emprestimo_id): Optional[Emprestimo]
+    + {static} obter_historico_usuario_completo(usuario_id): List[dict]
+    + {static} verificar_emprestimos_atrasados(usuario_id): List[dict]
+    + {static} estatisticas_biblioteca(biblioteca_id): dict
+}
+
+class Reserva {
+    - id: Optional[int]
+    - usuario_id: int
+    - livro_id: int
+    - data_reserva: datetime
+    - status: str
+    + {static} FILAS_POR_LIVRO: dict
+    
+    + salvar(): tuple[bool, str]
+    + cancelar(): tuple[bool, str]
+    + marcar_atendida(): tuple[bool, str]
+    
+    ' Métodos estáticos
+    + {static} proxima_para_livro(livro_id): Optional[Reserva]
+    + {static} listar_por_livro(livro_id): List[Reserva]
+    + {static} listar_ativas(livro_id): List[Reserva]
 }
 
 class Avaliacao {
-    - id: int
+    - _id: Optional[int]
     - livro_id: int
     - usuario_id: int
     - nota: int (1-5)
-    - comentario: str
+    - comentario: Optional[str]
     - data_avaliacao: datetime
-    - ativa: bool
+    - _ativa: bool
+    - emprestimo_id: Optional[int]
     
-    + __init__(livro_id, usuario_id, nota, comentario, ...)
     + validar(): tuple[bool, str]
     + salvar(): tuple[bool, str]
     + excluir(): tuple[bool, str]
@@ -182,18 +207,17 @@ class Avaliacao {
 }
 
 class Notificacao {
-    - id: int
+    - _id: Optional[int]
     - usuario_id: int
-    - tipo: TipoNotificacao
+    - tipo: str
     - titulo: str
     - mensagem: str
-    - status: StatusNotificacao
+    - status: str
     - data_criacao: datetime
-    - data_leitura: datetime
-    - ativa: bool
-    - livro_id: int
+    - data_leitura: Optional[datetime]
+    - _ativa: bool
+    - livro_id: Optional[int]
     
-    + __init__(usuario_id, tipo, titulo, mensagem, ...)
     + validar(): tuple[bool, str]
     + salvar(): tuple[bool, str]
     + marcar_como_lida(): tuple[bool, str]
@@ -210,104 +234,40 @@ class Notificacao {
     - _buscar_ultimo_id(db): int
 }
 
-class Emprestimo {
-    - id: int
-    - usuario_id: int
-    - livro_id: int
-    - biblioteca_id: int
-    - data_emprestimo: datetime
-    - data_prevista_devolucao: datetime
-    - data_devolucao: datetime
-    - status: StatusEmprestimo
-    - tipo: TipoEmprestimo
-    - valor_multa: float
-    - dias_emprestimo: int
-    - renovacoes: int
-    - max_renovacoes: int
-    - observacoes: str
-    
-    + __init__(usuario_id, livro_id, biblioteca_id, dias_emprestimo, tipo, max_renovacoes, observacoes)
-    + validar_dados(): tuple[bool, str]
-    + esta_em_atraso(): bool
-    + dias_atraso(): int
-    + calcular_multa(valor_diario): float
-    + atualizar_status(): void
-    + pode_renovar(): tuple[bool, str]
-    + renovar(dias_adicionais): tuple[bool, str]
-    + devolver(observacoes_devolucao): tuple[bool, str]
-    + cancelar(motivo): tuple[bool, str]
-    + salvar(): tuple[bool, str]
-    + obter_dias_restantes(): int
-    
-    + {static} listar_todos(limite, incluir_devolvidos): list[Emprestimo]
-    + {static} buscar_por_usuario(usuario_id, apenas_ativos): list[Emprestimo]
-    + {static} buscar_por_livro(livro_id): list[Emprestimo]
-    + {static} buscar_atrasados(): list[Emprestimo]
-    + {static} buscar_por_id(emprestimo_id): Emprestimo
-    + {static} estatisticas_biblioteca(biblioteca_id): dict
-}
-
-' ========== ENUMS ==========
-
-enum TipoNotificacao {
-    EMPRESTIMO
-    DEVOLUCAO
-    RESERVA
-    MULTA
-    SISTEMA
-    PROMOCAO
-}
-
-enum StatusNotificacao {
-    NAO_LIDA
-    LIDA
-    ARQUIVADA
-}
-
-enum StatusBiblioteca {
-    ABERTA
-    FECHADA
-    MANUTENCAO
-}
-
-enum StatusEmprestimo {
-    ATIVO
-    DEVOLVIDO
-    ATRASADO
-    RENOVADO
-    CANCELADO
-}
-
-enum TipoEmprestimo {
-    NORMAL
-    RESERVA
-    RENOVACAO
-}
-
 ' ========== RELACIONAMENTOS ==========
 
-' Relacionamentos de Herança
-Usuario <|-- Aluno : ""
-Usuario <|-- Professor : ""
-Usuario <|-- Bibliotecario : ""
+' Relacionamentos de Herança (Polimorfismo)
+Usuario <|-- Aluno : "herda"
+Usuario <|-- Professor : "herda"
+Usuario <|-- Bibliotecario : "herda"
 
-' Relacionamentos diretos entre as classes (Foreign Keys)
-Usuario ||--o{ Avaliacao : "1...*"
-Livro ||--o{ Avaliacao : "1...*"
+' Relacionamentos de Composição/Agregação
+Usuario ||--o{ Emprestimo : "1 para muitos"
+Livro ||--o{ Emprestimo : "1 para muitos"
 
-Usuario ||--o{ Notificacao : "1...*"
-Livro ||--o{ Notificacao : "0...*"
+Usuario ||--o{ Reserva : "1 para muitos"
+Livro ||--o{ Reserva : "1 para muitos"
 
-Usuario ||--o{ Emprestimo : "1...*"
-Livro ||--o{ Emprestimo : "1...*"
-Biblioteca ||--o{ Emprestimo : "1...*"
+Usuario ||--o{ Avaliacao : "1 para muitos"
+Livro ||--o{ Avaliacao : "1 para muitos"
+Emprestimo ||--o{ Avaliacao : "0..1 para muitos"
 
-' Composições com Enums
-Notificacao --> TipoNotificacao : ""
-Notificacao --> StatusNotificacao : ""
-Biblioteca --> StatusBiblioteca : ""
-Emprestimo --> StatusEmprestimo : ""
-Emprestimo --> TipoEmprestimo : ""
+Usuario ||--o{ Notificacao : "1 para muitos"
+Livro ||--o{ Notificacao : "0..1 para muitos"
 
+' Observações importantes
+note right of Usuario : Classe abstrata (ABC) que define\ncontrato com métodos abstratos:\n- tipo_usuario (property)\n- validar_dados_especificos()\n- obter_dados_para_banco()\nFactory pattern no _from_db_row()
+
+note right of Aluno : Implementa métodos abstratos\ncom validação específica:\n- matricula obrigatória\n- curso obrigatório
+
+note right of Professor : Implementa métodos abstratos\ncom validação específica:\n- matricula obrigatória\n- departamento obrigatório
+
+note right of Bibliotecario : Implementa métodos abstratos\ncom validação mais simples:\n- sem campos específicos obrigatórios
+
+note right of Livro : Implementa controle de estoque\ncom quantidade_disponivel e\nquantidade_emprestada
+
+note right of Emprestimo : Gerencia todo o ciclo de vida\ndo empréstimo: criação, renovação,\ndevolução e validações
+
+note right of Reserva : Sistema de fila de reservas\npor livro com prioridades
 
 @enduml

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class DatabaseConnection:
 
     def __init__(self):
@@ -56,7 +57,8 @@ class DatabaseConnection:
             cursor = self.connection.cursor()
             cursor.execute(query, params)
 
-            columns = [column[0] for column in cursor.description] if cursor.description else []
+            columns = [column[0]
+                       for column in cursor.description] if cursor.description else []
 
             rows = cursor.fetchall()
 
@@ -127,7 +129,7 @@ class DatabaseConnection:
         try:
             result = self.execute_scalar("SELECT 1")
             return result == 1
-        except:
+        except BaseException:
             return False
 
     def __enter__(self):
@@ -139,7 +141,9 @@ class DatabaseConnection:
 
         self.disconnect()
 
+
 _db_connection = None
+
 
 def get_connection():
 
@@ -153,6 +157,7 @@ def get_connection():
             raise Exception("Não foi possível conectar ao banco de dados")
 
     return _db_connection.connection
+
 
 def close_connection():
 

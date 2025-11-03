@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 from enum import Enum
 
+
 class TipoNotificacao(Enum):
 
     EMPRESTIMO = "EMPRESTIMO"
@@ -12,18 +13,28 @@ class TipoNotificacao(Enum):
     SISTEMA = "SISTEMA"
     PROMOCAO = "PROMOCAO"
 
+
 class StatusNotificacao(Enum):
 
     NAO_LIDA = "NAO_LIDA"
     LIDA = "LIDA"
     ARQUIVADA = "ARQUIVADA"
 
+
 class Notificacao:
 
-    def __init__(self, usuario_id: int, tipo: TipoNotificacao, titulo: str, mensagem: str,
-                 id: Optional[int] = None, status: StatusNotificacao = StatusNotificacao.NAO_LIDA,
-                 data_criacao: Optional[datetime] = None, data_leitura: Optional[datetime] = None,
-                 ativa: bool = True, livro_id: Optional[int] = None):
+    def __init__(
+            self,
+            usuario_id: int,
+            tipo: TipoNotificacao,
+            titulo: str,
+            mensagem: str,
+            id: Optional[int] = None,
+            status: StatusNotificacao = StatusNotificacao.NAO_LIDA,
+            data_criacao: Optional[datetime] = None,
+            data_leitura: Optional[datetime] = None,
+            ativa: bool = True,
+            livro_id: Optional[int] = None):
 
         self._id = id
         self.usuario_id = usuario_id
@@ -47,6 +58,7 @@ class Notificacao:
     @ativa.setter
     def ativa(self, valor: bool):
         self._ativa = valor
+
     def validar(self) -> tuple[bool, str]:
 
         if not self.usuario_id or self.usuario_id <= 0:
@@ -77,9 +89,16 @@ class Notificacao:
         db = DatabaseConnection()
 
         try:
-            query =
-            params = (self.usuario_id, self.tipo.value, self.titulo, self.mensagem,
-                     self.status.value, self.data_criacao, self.livro_id)
+            query = """INSERT INTO Notificacao (UsuarioId, Tipo, Titulo, Mensagem, Status, DataCriacao, LivroId)
+                      VALUES (?, ?, ?, ?, ?, ?, ?)"""
+            params = (
+                self.usuario_id,
+                self.tipo.value,
+                self.titulo,
+                self.mensagem,
+                self.status.value,
+                self.data_criacao,
+                self.livro_id)
 
             if db.execute_non_query(query, params):
                 self.id = self._buscar_ultimo_id(db)
@@ -100,7 +119,7 @@ class Notificacao:
         db = DatabaseConnection()
 
         try:
-            query =
+            query = "UPDATE Notificacao SET Status = ?, DataLeitura = ? WHERE Id = ?"
             self.data_leitura = datetime.now()
             self.status = StatusNotificacao.LIDA
 
@@ -156,7 +175,9 @@ class Notificacao:
             return False, f"Erro ao excluir: {e}"
 
     @staticmethod
-    def listar_por_usuario(usuario_id: int, apenas_nao_lidas: bool = False) -> list['Notificacao']:
+    def listar_por_usuario(
+            usuario_id: int,
+            apenas_nao_lidas: bool = False) -> list['Notificacao']:
 
         from Banco_de_dados.connection import DatabaseConnection
 
@@ -164,10 +185,14 @@ class Notificacao:
 
         try:
             if apenas_nao_lidas:
-                query =
+                query = """SELECT Id, UsuarioId, Tipo, Titulo, Mensagem, Status, DataCriacao, DataLeitura, Ativa, LivroId
+                          FROM Notificacao WHERE UsuarioId = ? AND Status = ? AND Ativa = 1
+                          ORDER BY DataCriacao DESC"""
                 params = (usuario_id, StatusNotificacao.NAO_LIDA.value)
             else:
-                query =
+                query = """SELECT Id, UsuarioId, Tipo, Titulo, Mensagem, Status, DataCriacao, DataLeitura, Ativa, LivroId
+                          FROM Notificacao WHERE UsuarioId = ? AND Ativa = 1
+                          ORDER BY DataCriacao DESC"""
                 params = (usuario_id,)
 
             resultados = db.execute_query(query, params)
@@ -189,18 +214,27 @@ class Notificacao:
         db = DatabaseConnection()
 
         try:
-            query =
-            resultado = db.execute_query(query, (usuario_id, StatusNotificacao.NAO_LIDA.value))
+            query = "SELECT COUNT(*) as Total FROM Notificacao WHERE UsuarioId = ? AND Status = ? AND Ativa = 1"
+            resultado = db.execute_query(
+                query, (usuario_id, StatusNotificacao.NAO_LIDA.value))
 
-            return resultado[0][0] if resultado else 0
+            if resultado and len(resultado) > 0:
+                if isinstance(resultado[0], dict):
+                    return resultado[0].get('Total', 0)
+                else:
+                    return resultado[0][0] if len(resultado[0]) > 0 else 0
+            return 0
 
         except Exception as e:
             print(f"✗ Erro ao contar notificações: {e}")
             return 0
 
     @staticmethod
-    def criar_notificacao_sistema(usuario_id: int, titulo: str, mensagem: str,
-                                 livro_id: Optional[int] = None) -> 'Notificacao':
+    def criar_notificacao_sistema(
+            usuario_id: int,
+            titulo: str,
+            mensagem: str,
+            livro_id: Optional[int] = None) -> 'Notificacao':
 
         notificacao = Notificacao(
             usuario_id=usuario_id,
@@ -234,7 +268,7 @@ class Notificacao:
             query = "SELECT SCOPE_IDENTITY()"
             resultado = db.execute_query(query)
             return int(resultado[0][0]) if resultado else None
-        except:
+        except BaseException:
             return None
 
     def __str__(self) -> str:
