@@ -6,7 +6,7 @@ skinparam classAttributeIconSize 0
 skinparam classFontSize 9
 skinparam packageStyle rectangle
 
-title Sistema de Biblioteca - Modelos Backend (Implementação Final)\nRelacionamentos entre Classes
+title Sistema de Biblioteca - Modelos Backend (Atualizado)\nImplementação com Correções Arquiteturais Aplicadas
 
 ' ========== CLASSE ABSTRATA PRINCIPAL ==========
 
@@ -19,10 +19,20 @@ abstract class Usuario {
     - _data_cadastro: Optional[datetime]
     - _data_atualizacao: Optional[datetime]
     
+    ' Properties (getters/setters)
+    + id: @property Optional[int]
+    + nome: @property str
+    + email: @property str  
+    + senha: @property str
+    + ativo: @property bool
+    + data_cadastro: @property Optional[datetime]
+    + data_atualizacao: @property Optional[datetime]
+    
     + verificar_senha(senha: str): bool
     + validar(): tuple[bool, str]
     + salvar(): tuple[bool, str]
     + excluir(): tuple[bool, str]
+    + ativar(): tuple[bool, str]
     + to_dict(): dict
     
     ' Properties e Métodos Abstratos (devem ser implementados pelas subclasses)
@@ -31,11 +41,11 @@ abstract class Usuario {
     + {abstract} obter_dados_para_banco(): dict
     
     ' Métodos estáticos
-    + {static} autenticar(email, senha): tuple[bool, Optional[Usuario], str]
-    + {static} listar_todos(limite, incluir_inativos): list[Usuario]
-    + {static} buscar_por_email(email): Optional[Usuario]
-    + {static} buscar_por_id(id): Optional[Usuario]
-    + {static} _from_db_row(row): Usuario
+    + autenticar(email, senha): tuple[bool, Optional[Usuario], str]
+    + listar_todos(limite, incluir_inativos): list[Usuario]
+    + buscar_por_email(email): Optional[Usuario]
+    + buscar_por_id(id): Optional[Usuario]
+    + _from_db_row(row): Usuario
     
     ' Métodos privados
     - _criptografar_senha(senha): str
@@ -97,6 +107,17 @@ class Livro {
     - _quantidade_disponivel: Optional[int]
     - _quantidade_emprestada: Optional[int]
     
+    ' Properties (getters/setters)
+    + id: @property Optional[int]
+    + nome: @property str
+    + isbn: @property str
+    + ativo: @property bool
+    
+    ' Properties calculadas (somente getters)
+    + quantidade_disponivel: @property int
+    + quantidade_emprestada: @property int
+    + disponivel_para_emprestimo: @property bool
+    
     + validar(): tuple[bool, str]
     + salvar(): tuple[bool, str]
     + excluir(): tuple[bool, str]
@@ -105,19 +126,15 @@ class Livro {
     + pode_ser_deletado(): tuple[bool, str]
     + deletar_com_verificacao(): tuple[bool, str]
     + to_dict(): dict
-    
-    ' Properties calculadas
-    + quantidade_disponivel: int
-    + quantidade_emprestada: int
-    + disponivel_para_emprestimo: bool
+    + from_dict(data): Livro
     
     ' Métodos estáticos
-    + {static} listar_todos(limite, incluir_inativos): list[Livro]
-    + {static} listar_com_estoque(): list[Livro]
-    + {static} buscar_por_isbn(isbn): Optional[Livro]
-    + {static} buscar_por_id(id): Optional[Livro]
-    + {static} _from_db_row(row): Livro
-    + {static} _from_estoque_row(row): Livro
+    + listar_todos(limite, incluir_inativos): list[Livro]
+    + listar_com_estoque(): list[Livro]
+    + buscar_por_isbn(isbn): Optional[Livro]
+    + buscar_por_id(id): Optional[Livro]
+    + _from_db_row(row): Livro
+    + _from_estoque_row(row): Livro
     
     ' Métodos privados
     - _inserir(db): tuple[bool, str]
@@ -156,12 +173,13 @@ class Emprestimo {
     + obter_dias_restantes(): int
     
     ' Métodos estáticos
-    + {static} listar_por_usuario(usuario_id, apenas_ativos): List[Emprestimo]
-    + {static} buscar_por_usuario(usuario_id, apenas_ativos): List[Emprestimo]
-    + {static} buscar_por_id(emprestimo_id): Optional[Emprestimo]
-    + {static} obter_historico_usuario_completo(usuario_id): List[dict]
-    + {static} verificar_emprestimos_atrasados(usuario_id): List[dict]
-    + {static} estatisticas_biblioteca(biblioteca_id): dict
+    + listar_por_usuario(usuario_id, apenas_ativos): List[Emprestimo]
+    + buscar_por_usuario(usuario_id, apenas_ativos): List[Emprestimo]
+    + buscar_por_id(emprestimo_id): Optional[Emprestimo]
+    + obter_historico_usuario_completo(usuario_id): List[dict]
+    + verificar_emprestimos_atrasados(usuario_id): List[dict]
+    + contar_emprestimos_ativos_por_livro(livro_id): int
+    + estatisticas_biblioteca(biblioteca_id): dict
 }
 
 class Reserva {
@@ -170,16 +188,16 @@ class Reserva {
     - livro_id: int
     - data_reserva: datetime
     - status: str
-    + {static} FILAS_POR_LIVRO: dict
+    + FILAS_POR_LIVRO: dict
     
     + salvar(): tuple[bool, str]
     + cancelar(): tuple[bool, str]
     + marcar_atendida(): tuple[bool, str]
     
     ' Métodos estáticos
-    + {static} proxima_para_livro(livro_id): Optional[Reserva]
-    + {static} listar_por_livro(livro_id): List[Reserva]
-    + {static} listar_ativas(livro_id): List[Reserva]
+    + proxima_para_livro(livro_id): Optional[Reserva]
+    + listar_por_livro(livro_id): List[Reserva]
+    + listar_ativas(livro_id): List[Reserva]
 }
 
 class Avaliacao {
@@ -192,14 +210,20 @@ class Avaliacao {
     - _ativa: bool
     - emprestimo_id: Optional[int]
     
+    ' Properties (getters/setters)
+    + id: @property Optional[int]
+    + ativa: @property bool
+    
     + validar(): tuple[bool, str]
     + salvar(): tuple[bool, str]
     + excluir(): tuple[bool, str]
     
     ' Métodos estáticos
-    + {static} listar_por_livro(livro_id): list[Avaliacao]
-    + {static} calcular_media_livro(livro_id): float
-    + {static} _from_db_row(row): Avaliacao
+    + listar_por_livro(livro_id): list[Avaliacao]
+    + listar_por_usuario(usuario_id): list[dict]
+    + listar_por_emprestimo(emprestimo_id): list[Avaliacao]
+    + calcular_media_livro(livro_id): float
+    + _from_db_row(row): Avaliacao
     
     ' Métodos privados
     - _usuario_ja_avaliou(db): bool
@@ -225,10 +249,10 @@ class Notificacao {
     + excluir(): tuple[bool, str]
     
     ' Métodos estáticos
-    + {static} listar_por_usuario(usuario_id, apenas_nao_lidas): list[Notificacao]
-    + {static} contar_nao_lidas(usuario_id): int
-    + {static} criar_notificacao_sistema(usuario_id, titulo, mensagem, livro_id): Notificacao
-    + {static} _from_db_row(row): Notificacao
+    + listar_por_usuario(usuario_id, apenas_nao_lidas): list[Notificacao]
+    + contar_nao_lidas(usuario_id): int
+    + criar_notificacao_sistema(usuario_id, titulo, mensagem, livro_id): Notificacao
+    + _from_db_row(row): Notificacao
     
     ' Métodos privados
     - _buscar_ultimo_id(db): int
@@ -255,19 +279,5 @@ Emprestimo ||--o{ Avaliacao : "0..1 para muitos"
 Usuario ||--o{ Notificacao : "1 para muitos"
 Livro ||--o{ Notificacao : "0..1 para muitos"
 
-' Observações importantes
-note right of Usuario : Classe abstrata (ABC) que define\ncontrato com métodos abstratos:\n- tipo_usuario (property)\n- validar_dados_especificos()\n- obter_dados_para_banco()\nFactory pattern no _from_db_row()
-
-note right of Aluno : Implementa métodos abstratos\ncom validação específica:\n- matricula obrigatória\n- curso obrigatório
-
-note right of Professor : Implementa métodos abstratos\ncom validação específica:\n- matricula obrigatória\n- departamento obrigatório
-
-note right of Bibliotecario : Implementa métodos abstratos\ncom validação mais simples:\n- sem campos específicos obrigatórios
-
-note right of Livro : Implementa controle de estoque\ncom quantidade_disponivel e\nquantidade_emprestada
-
-note right of Emprestimo : Gerencia todo o ciclo de vida\ndo empréstimo: criação, renovação,\ndevolução e validações
-
-note right of Reserva : Sistema de fila de reservas\npor livro com prioridades
 
 @enduml
